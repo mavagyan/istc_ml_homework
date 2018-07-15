@@ -21,7 +21,7 @@ class GMM:
         """
         self._initialize_params(data)
         # TODO: while is not converging
-        for i in range(1):  # run 10 iterations for now
+        for i in range(10):  # run 10 iterations for now
             print("Iteration #" + str(i + 1))
             self._E_step(data)
             self._M_step(data)
