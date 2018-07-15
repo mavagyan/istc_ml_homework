@@ -3,16 +3,16 @@ from scipy import random
 import time
 from matplotlib import patches
 import matplotlib.pyplot as plt
+from scipy import stats
 
 
 class GMM:
-    def __init__(self, K, normalization_factor=1):
+    def __init__(self, K):
         self.K = K
         self.means = []  # randomly initialize, then update with the formula
         self.covariances = []  # randomly initialize, then update with the formula
         self.pis = []  # randomly initialize, then update with the formula
         self.gammas = []  # update using the formula
-        self.normalization_factor = normalization_factor
 
     def fit(self, data):
         """
@@ -22,9 +22,9 @@ class GMM:
         self._initialize_params(data)
         # TODO: while is not converging
         for i in range(1):  # run 10 iterations for now
+            print("Iteration #" + str(i + 1))
             self._E_step(data)
             self._M_step(data)
-        self.incorporate_normalization_factor()
 
     def _initialize_params(self, data):
         self.gammas = np.empty(shape=[K, data.shape[0]], dtype=np.float64)
@@ -38,17 +38,11 @@ class GMM:
 
         # initializing covariances
         for i in range(self.K):
-            matrixSize = data.shape[1]
-            A = random.rand(matrixSize, matrixSize)
-            B = np.dot(A, A.transpose())
-            self.covariances.append(B)
+            self.covariances.append(np.eye(data.shape[1]))
 
         # initializing pis
-        sum = 0
         for i in range(self.K):
-            self.pis.append(random.random())
-            sum += self.pis[i]
-        self.pis = [x / sum for x in self.pis]
+            self.pis.append(1/self.K)
 
         self.means = np.asarray(self.means, dtype=np.float64)
         self.covariances = np.asarray(self.covariances, dtype=np.float64)
@@ -61,16 +55,13 @@ class GMM:
 
         for i in range(data.shape[0]):
             exponents = np.empty(shape=[self.K], dtype=np.float64)
-            exponent_sum = 0
+            sum_exponents = 0
             for k in range(self.K):
-                diff = data[i] - self.means[k]
-                product1 = np.dot(np.transpose(diff), self.covariances[k])
-                product = np.dot(product1, diff)
-                exponents[k] = np.exp(-0.5 * product)
-                exponent_sum += exponents[k]
+                exponents[k] = stats.multivariate_normal(self.means[k], self.covariances[k]).cdf(data[i])
+                sum_exponents += exponents[k]
             # TODO runtime warning here
             for k in range(self.K):
-                self.gammas[k, i] = (coefs[k] * exponents[k]) / exponent_sum
+                self.gammas[k, i] = (coefs[k] * exponents[k]) / sum_exponents
 
     def _M_step(self, data):
         for k in range(K):
@@ -97,16 +88,9 @@ class GMM:
         for i, _ in enumerate(data):
             probabilities = np.empty(shape=[self.K], dtype=np.float64)
             for k in range(self.K):
-                diff = data[i] - self.means[k]
-                product1 = np.dot(np.transpose(diff), self.covariances[k])
-                product = np.dot(product1, diff)
-                probabilities[k] = np.exp(-0.5 * product)
+                probabilities[k] = stats.multivariate_normal(self.means[k], self.covariances[k]).cdf(data[i])
             prediction[i] = probabilities.tolist().index(probabilities.max())
         return prediction
-
-    def incorporate_normalization_factor(self):
-        self.means = self.normalization_factor * self.means
-        self.covariances = self.normalization_factor * self.covariances
 
     def get_means(self):
         return self.means.copy()
@@ -152,6 +136,6 @@ if __name__ == "__main__":
         e.set_alpha(np.power(pi[k], .3))
         e.set_facecolor('red')
         plt.axes().add_artist(e)
-    plt.savefig('covariances_{}_{}'.format(cluster_data, "Gaussian-EM" + str(time.time())))
     plt.show()
+    plt.savefig('covariances_{}_{}'.format(cluster_data, "Gaussian-EM" + str(time.time())))
 
